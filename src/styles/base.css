@@ -1,0 +1,40 @@
+/* Global base styles. Layer-specific styles live in src/styles/hud.css and src/styles/menus.css. */
+:root {
+  --ssk-font-display: 'Lilita One', 'Arial Black', 'Segoe UI Black', system-ui, sans-serif;
+  --ssk-font-ui: 'M PLUS Rounded 1c', 'Segoe UI', system-ui, sans-serif;
+  --ssk-blue: #1fb6ff;
+  --ssk-blue-deep: #0b5cd6;
+  --ssk-pink: #ff4d8d;
+  --ssk-gold: #ffd23f;
+  --ssk-ink: #16213a;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0a1022;
+  color: #fff;
+  font-family: var(--ssk-font-ui);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+#app, #hud, #menu, #overlay {
+  position: fixed;
+  inset: 0;
+}
+
+#app { z-index: 0; }
+#app canvas { display: block; width: 100%; height: 100%; }
+#hud { z-index: 10; pointer-events: none; }
+#menu { z-index: 20; }
+#menu:empty { pointer-events: none; }
+#overlay { z-index: 30; pointer-events: none; }
+
+.ssk-hidden { display: none !important; }
