@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5fd0ff"/>
+      <stop offset="1" stop-color="#1476e8"/>
+    </linearGradient>
+    <linearGradient id="ear" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b2440"/>
+      <stop offset="1" stop-color="#2d3a63"/>
+    </linearGradient>
+    <pattern id="chk" width="40" height="40" patternUnits="userSpaceOnUse">
+      <rect width="40" height="40" fill="#fff"/>
+      <rect width="20" height="20" fill="#16213a"/>
+      <rect x="20" y="20" width="20" height="20" fill="#16213a"/>
+    </pattern>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <g opacity="0.16" fill="#fff">
+    <path d="M-40 380 L380 -40 L440 -40 L20 380Z"/>
+    <path d="M60 560 L560 60 L560 140 L140 560Z"/>
+  </g>
+  <!-- cat ears -->
+  <path d="M118 250 L150 92 L250 196Z" fill="url(#ear)" stroke="#fff" stroke-width="14" stroke-linejoin="round"/>
+  <path d="M394 250 L362 92 L262 196Z" fill="url(#ear)" stroke="#fff" stroke-width="14" stroke-linejoin="round"/>
+  <path d="M146 214 L160 132 L214 190Z" fill="#ff9fbf"/>
+  <path d="M366 214 L352 132 L298 190Z" fill="#ff9fbf"/>
+  <!-- halo -->
+  <g fill="none" stroke="#ff3355" stroke-linecap="round">
+    <ellipse cx="256" cy="262" rx="150" ry="104" stroke-width="30"/>
+    <ellipse cx="256" cy="262" rx="98" ry="64" stroke-width="12" stroke-dasharray="34 20"/>
+    <path d="M256 124 V172 M256 352 V400 M76 262 H124 M388 262 H436" stroke-width="18"/>
+  </g>
+  <circle cx="256" cy="262" r="18" fill="#ff3355"/>
+  <!-- checkered strip -->
+  <g transform="rotate(-8 256 436)">
+    <rect x="-20" y="410" width="552" height="60" fill="url(#chk)" stroke="#fff" stroke-width="8"/>
+  </g>
+</svg>

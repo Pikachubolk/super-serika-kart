@@ -52,4 +52,18 @@ async function boot() {
   });
 }
 
+// ---- PWA: offline service worker (production builds only; dev keeps Vite's live modules) + install prompt
+if (import.meta.env.PROD && 'serviceWorker' in navigator && !params.has('scene')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch((err) => console.warn('[pwa] service worker failed', err)));
+}
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault(); // shown from the title screen's Install button instead of the mini-infobar
+  window.__ssk.installPrompt = e;
+  window.dispatchEvent(new Event('ssk-installable'));
+});
+window.addEventListener('appinstalled', () => {
+  window.__ssk.installPrompt = null;
+  window.dispatchEvent(new Event('ssk-installable'));
+});
+
 boot().catch(showFatal);

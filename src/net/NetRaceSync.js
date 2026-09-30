@@ -9,11 +9,19 @@
 // on its puppet. Hits are only applied to karts simulated locally (puppet hit methods are no-ops), so there
 // is no double counting — the victim's own client applies it and streams the result.
 //
+// Snapshots travel over the session's unordered 'state' channel. Each puppet renders `delay` ms in the past,
+// where the delay adapts per kart to the measured snapshot lag + jitter (host-relayed karts need more than
+// the host's own) and glides slowly so the puppet never visibly jumps back.
+// Tournaments: the host scores every race (session.finishRound) and sends the standings with the results.
+//
 // Race hooks: roster, localKartId, simulates(entry), attach(race), applyRemote(kart, dt), beforeUse(kart),
 //   afterItems(), onLocalFinish(), update(dt), secondsToGo(), startAt, detach()
 
 const SEND_HZ = 20;
-const INTERP_MS = 100;
+const INTERP_MS = 110; // starting delay before any lag has been measured
+const MIN_DELAY_MS = 60;
+const MAX_DELAY_MS = 350;
+const DELAY_SLEW = 60; // ms of delay change per second, at most
 const MAX_EXTRAP_MS = 250;
 const LOAD_TIMEOUT_MS = 20000;
 const GO_LEAD_MS = 4500;
@@ -54,6 +62,7 @@ export class NetRaceSync {
     this.race = null;
     this.buffers = new Map(); // kartId -> snapshots (ascending ts)
     this.latest = new Map(); // kartId -> newest snapshot
+    this.lag = new Map(); // kartId -> { mean, dev, delay } (ms)
     this._sendAcc = 0;
     this._pre = null;
     this._replaying = false;
@@ -111,7 +120,10 @@ export class NetRaceSync {
           console.warn('[net] host tick failed', err);
         }
       }, 250);
-    } else this.session.send({ t: 'loaded' });
+    } else {
+      this.session.send({ t: 'loaded' });
+      this.session.syncClock?.();
+    }
   }
 
   _makePuppet(k) {
@@ -161,7 +173,11 @@ export class NetRaceSync {
         this._replayItem(m);
         break;
       case 'results':
-        if (!this.isHost) this._deliver(m.results);
+        if (!this.isHost) {
+          if (m.tour) this.session.tour = m.tour;
+          if ('nextAt' in m) this.session.nextAt = m.nextAt ?? null;
+          this._deliver(m.results, { tour: m.tour || null });
+        }
         break;
     }
   }
@@ -175,6 +191,14 @@ export class NetRaceSync {
     if (buf.length && s.ts <= buf[buf.length - 1].ts) return; // out of order / duplicate
     buf.push(s);
     this.stats.statesRecv++;
+    // how far behind the shared clock snapshots of this kart arrive (+ jitter) -> its render delay
+    const lagMs = this.session.now() - s.ts;
+    let L = this.lag.get(s.k);
+    if (!L) this.lag.set(s.k, (L = { mean: lagMs, dev: 15, delay: INTERP_MS }));
+    else {
+      L.dev += (Math.abs(lagMs - L.mean) - L.dev) * 0.1;
+      L.mean += (lagMs - L.mean) * 0.1;
+    }
     if (buf.length > 30) buf.splice(0, buf.length - 30);
     this.latest.set(s.k, s);
   }
@@ -227,6 +251,8 @@ export class NetRaceSync {
     if (this._replaying || !kart || kart.netRemote) return;
     const pre = this._pre && this._pre.kart === kart ? this._pre : null;
     this.stats.itemsSent++;
+    const p = kart.position;
+    const v = kart.velocity;
     this.session.send({
       t: 'item',
       raceId: this.info.raceId,
@@ -234,6 +260,11 @@ export class NetRaceSync {
       id: itemId,
       u: pre && pre.item === itemId ? pre.uses : kart.itemUses + 1,
       b: !!kart.controls?.lookBack,
+      // where it was used: replays spawn the item there, not at the (delayed) puppet
+      p: [r3(p.x), r3(p.y), r3(p.z)],
+      v: [r2(v.x), r2(v.y), r2(v.z)],
+      y: r3(kart.yaw),
+      s: r2(kart.speed || 0),
     });
     this._pre = null;
   }
@@ -243,6 +274,7 @@ export class NetRaceSync {
     const k = this.kartsById?.get(m.k);
     if (!race?.items || !k || !k.netRemote) return;
     this._replaying = true;
+    const pose = Array.isArray(m.p) ? this._swapPose(k, m) : null;
     try {
       if (k.roulette) k.roulette.active = false;
       k.item = m.id;
@@ -254,8 +286,34 @@ export class NetRaceSync {
     } catch (err) {
       console.warn('[net] item replay failed', err);
     } finally {
+      if (pose) this._restorePose(k, pose);
       this._replaying = false;
     }
+  }
+
+  /** Temporarily put a puppet where the sender used its item; returns what to restore. */
+  _swapPose(k, m) {
+    const saved = { p: k.position.clone(), v: k.velocity.clone(), yaw: k.yaw, speed: k.speed, f: k.forward?.clone(), r: k.right?.clone() };
+    k.position.set(m.p[0], m.p[1], m.p[2]);
+    if (Array.isArray(m.v)) k.velocity.set(m.v[0], m.v[1], m.v[2]);
+    if (Number.isFinite(m.y)) {
+      k.yaw = m.y;
+      const fx = Math.sin(m.y);
+      const fz = Math.cos(m.y);
+      k.forward?.set(fx, 0, fz);
+      k.right?.set(-fz, 0, fx);
+    }
+    if (Number.isFinite(m.s)) k.speed = m.s;
+    return saved;
+  }
+
+  _restorePose(k, s) {
+    k.position.copy(s.p);
+    k.velocity.copy(s.v);
+    k.yaw = s.yaw;
+    k.speed = s.speed;
+    if (s.f) k.forward.copy(s.f);
+    if (s.r) k.right.copy(s.r);
   }
 
   /** Called after items.update: the puppets' item slots come from the network, not local pickups. */
@@ -275,12 +333,22 @@ export class NetRaceSync {
   }
 
   // ============================================================================================ puppets
+  /** Render delay (ms) of a puppet: glides toward lag + one send interval + 2.5 x jitter. */
+  _delay(id, dt) {
+    const L = this.lag.get(id);
+    if (!L) return INTERP_MS;
+    const target = Math.min(MAX_DELAY_MS, Math.max(MIN_DELAY_MS, L.mean + 1000 / SEND_HZ + L.dev * 2.5));
+    const step = DELAY_SLEW * (dt || 0);
+    L.delay += Math.max(-step, Math.min(step, target - L.delay));
+    return L.delay;
+  }
+
   applyRemote(k, dt) {
     const buf = this.buffers.get(k.id);
     k.prevPosition.copy(k.position);
     k.prevYaw = k.yaw;
     if (!buf || !buf.length) return;
-    const T = this.session.now() - INTERP_MS;
+    const T = this.session.now() - this._delay(k.id, dt);
     let a = buf[0];
     let b = null;
     for (let i = buf.length - 1; i >= 0; i--) {
@@ -435,7 +503,7 @@ export class NetRaceSync {
       const a = [];
       for (const k of race.karts) if (!k.netRemote) a.push(this._snapshot(k, ts));
       if (a.length) {
-        this.session.send({ t: 'S', raceId: this.info.raceId, a });
+        this.session.sendState({ t: 'S', raceId: this.info.raceId, a });
         this.stats.statesSent += a.length;
       }
     }
@@ -463,9 +531,9 @@ export class NetRaceSync {
       (this._firstHumanFinish != null && now - this._firstHumanFinish > STRAGGLER_TIMEOUT * 1000);
     if (!ready) return;
     const results = race.getResults().map((r) => ({ ...r, isPlayer: false }));
-    this.session.send({ t: 'results', raceId: this.info.raceId, results });
-    this.session.endRace();
-    this._deliver(results);
+    const tour = this.session.finishRound ? this.session.finishRound(results) : (this.session.endRace(), null);
+    this.session.send({ t: 'results', raceId: this.info.raceId, results, tour, nextAt: this.session.nextAt ?? null });
+    this._deliver(results, { tour });
   }
 
   _deliver(results, extra = {}) {
@@ -474,7 +542,7 @@ export class NetRaceSync {
     const race = this.race;
     const list = (results || []).map((r) => {
       const e = this.entryFor(r.id);
-      return { ...r, isPlayer: r.id === this.localKartId, online: true, human: !!(e && (e.owner || e.left)), name: r.name || e?.name };
+      return { ...r, isPlayer: r.id === this.localKartId, online: true, human: !!(e && (e.owner || e.left)), name: r.name || e?.name, key: e?.key || r.id };
     });
     this.finalResults = list;
     this.resultExtra = extra;

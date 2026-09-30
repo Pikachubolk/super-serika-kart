@@ -332,3 +332,13 @@
 @keyframes tc-toast-in {
   from { opacity: 0; transform: translateY(-14px) scale(0.9); }
 }
+
+/* Title prompt on touch screens; the floating fullscreen button only on the title / main menu (it would
+   cover bottom-right buttons elsewhere; the first tap on the title already enters fullscreen). */
+.mn-hint-touch { display: none; }
+html.ssk-touch .mn-title-press .mn-hint-kb { display: none; }
+html.ssk-touch .mn-title-press .mn-hint-touch { display: inline; }
+#menu:not([data-screen='title']):not([data-screen='main']) ~ #overlay .tc-fs { display: none; }
+.hud-skip-tap { display: none; }
+html.ssk-touch .hud-title-skip .hud-skip-kb { display: none; }
+html.ssk-touch .hud-title-skip .hud-skip-tap { display: inline; }

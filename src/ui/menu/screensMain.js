@@ -40,12 +40,46 @@ export class TitleScreen extends Screen {
       <div class="mn-title-sub"><span>KIVOTOS GRAND PRIX</span></div>
       <button class="mn-title-press" data-focus data-key="start">
         <span class="mn-hint-kb">PRESS ENTER / CLICK TO START</span>
+        <span class="mn-hint-touch">TAP TO START</span>
         <span class="mn-hint-pad">PRESS <b class="mn-kbd mn-padkey mn-pad-a">A</b> TO START</span>
       </button>
       <div class="mn-title-foot"><span>Fan-made tribute &middot; not affiliated with NEXON Games or Yostar</span><span>v1.0</span></div>
+      <button class="mn-title-install" hidden>${ICONS.arrowR}<span>Install App</span></button>
     </div>`);
     e.addEventListener('click', () => this._start());
+    this._installBtn = e.querySelector('.mn-title-install');
+    this._installBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); // not a "start" tap
+      this._install();
+    });
+    this._onInstallable = () => this._syncInstall();
+    window.addEventListener('ssk-installable', this._onInstallable);
+    this._syncInstall();
     return e;
+  }
+  leave() {
+    window.removeEventListener('ssk-installable', this._onInstallable);
+  }
+  /** Install button: Chrome/Edge/Android get the native prompt; iOS Safari gets the Share-sheet hint. */
+  _syncInstall() {
+    const standalone = window.matchMedia?.('(display-mode: standalone), (display-mode: fullscreen)').matches || navigator.standalone;
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    this._installBtn.hidden = standalone || !(window.__ssk?.installPrompt || ios);
+  }
+  async _install() {
+    const p = window.__ssk?.installPrompt;
+    if (!p) {
+      this.menus.toast?.('To install: tap Share, then "Add to Home Screen"', { duration: 5000 });
+      return;
+    }
+    window.__ssk.installPrompt = null;
+    try {
+      await p.prompt();
+      await p.userChoice;
+    } catch {
+      /* dismissed */
+    }
+    this._syncInstall();
   }
   update(dt) {
     this.t += dt;
@@ -59,6 +93,8 @@ export class TitleScreen extends Screen {
     if (this.started || this.t < 0.35) return;
     this.started = true;
     this.game.unlockAudio?.();
+    // phones: go fullscreen + landscape on the first tap (needs the tap's user activation)
+    if (this.game.input?.lastDevice === 'touch') this.game.input.touch?.enterFullscreen?.();
     this.sfx('menuSelect');
     this.el.classList.add('is-leaving');
     this.menus.go('main');

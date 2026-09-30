@@ -1,0 +1,170 @@
+/* Phones: compact menu layouts for short landscape screens (phones held sideways are ~320-430 px tall).
+   Loaded after menus.css (see src/ui/Menus.js), so these rules win at equal specificity. The desktop and
+   tablet layouts are untouched: everything here is inside the short-landscape media query. */
+
+@media (orientation: landscape) and (max-height: 500px) {
+  /* ---- shared chrome */
+  .mn-topbar { height: 50px; gap: 10px; padding: 0 max(12px, env(safe-area-inset-right, 0px)) 0 max(12px, env(safe-area-inset-left, 0px)); }
+  .mn-back { width: 40px; height: 40px; font-size: 18px; }
+  .mn-plate-halo { width: 32px; }
+  .mn-plate-crumb { font-size: 10px; margin-bottom: 2px; }
+  .mn-plate-title { font-size: 22px; }
+  .mn-chip { font-size: 11px; padding: 5px 10px; }
+  .mn-footer { padding: 6px 14px 6px 36px; font-size: 11px; }
+  .mn-btn { padding: 9px 16px; font-size: 17px; min-width: 0; }
+  .mn-sec { margin: 2px 0 5px; font-size: 15px; }
+
+  /* ---- main menu: smaller logo, rows share the remaining height (also undoes the narrow-screen
+     portrait layout of menus.css, which matches landscape phones narrower than 760 px) */
+  .mn-main-side { width: min(52vw, 560px); clip-path: polygon(0 0, 100% 0, 78% 100%, 0 100%); background: linear-gradient(100deg, rgba(255, 255, 255, 0.8) 0 70%, rgba(255, 255, 255, 0) 100%); }
+  .mn-main-logo { left: max(14px, env(safe-area-inset-left, 0px)); top: 6px; translate: none; width: min(24vw, 32vh, 260px); }
+  .mn-main-list {
+    translate: none;
+    left: max(14px, env(safe-area-inset-left, 0px));
+    top: calc(6px + min(24vw, 32vh, 260px) * 0.6);
+    bottom: 10px;
+    width: min(42vw, 420px);
+    justify-content: flex-start;
+    gap: 5px;
+  }
+  .mn-main-btn { height: auto; flex: 1 1 0; min-height: 0; max-height: 56px; gap: 10px; }
+  .mn-main-ico { width: 46px; font-size: 24px; }
+  .mn-main-btn.is-focus .mn-main-ico { font-size: 28px; }
+  .mn-main-txt { gap: 2px; }
+  .mn-main-txt b { font-size: clamp(16px, 5.4vh, 22px); }
+  .mn-main-txt small { font-size: 10px; }
+  .mn-main-desc { display: none; }
+
+  /* ---- engine class: shorter cards */
+  .mn-cc-row { inset: 62px max(12px, env(safe-area-inset-right, 0px)) 10px; gap: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .mn-cc-card { gap: 4px; padding-bottom: 8px; border-radius: 16px; height: min(100%, 470px); }
+  .mn-cc-band { padding: 8px 0 12px; }
+  .mn-cc-band b { font-size: clamp(30px, 11vh, 44px); }
+  .mn-cc-band small { font-size: 16px; }
+  .mn-cc-gauge { width: 46%; max-width: 86px; }
+  .mn-cc-name { font-size: 18px; }
+  .mn-cc-stars { font-size: 15px; }
+  .mn-cc-desc { display: block; font-size: 11px; line-height: 1.3; }
+  .mn-cc-card.is-focus { transform: translateY(-4px) scale(1.03); }
+
+  /* ---- character select: tiles sized by height so the info card fits below */
+  .mn-charsel-left { top: 58px; bottom: 8px; left: max(10px, env(safe-area-inset-left, 0px)); width: min(52vw, 520px); gap: 6px; }
+  .mn-char-grid { gap: 6px; }
+  .mn-char-tile { aspect-ratio: auto; height: clamp(52px, 23vh, 100px); max-height: none; }
+  .mn-char-name { font-size: 11px; padding: 2px 0; }
+  .mn-char-info { padding: 6px 12px; gap: 3px; }
+  .mn-char-school, .mn-char-quote, .mn-char-kart { display: none; }
+  .mn-char-full b { font-size: 18px; }
+  .mn-char-full span { font-size: 10px; }
+  .mn-stats { gap: 2px; }
+  .mn-stat { grid-template-columns: 62px 1fr; gap: 6px; }
+  .mn-stat-label { font-size: 10px; }
+  .mn-stat-bar { height: 7px; }
+  .mn-char-bigname { top: auto; bottom: 8px; right: max(14px, env(safe-area-inset-right, 0px)); }
+  .mn-char-bigname span { font-size: clamp(34px, 12vh, 56px); }
+  .mn-char-ready { font-size: clamp(40px, 14vh, 70px); }
+
+  /* ---- cup select (Grand Prix) */
+  .mn-cup-row { top: 62px; gap: 16px; flex-direction: row; align-items: stretch; }
+  .mn-cup-card { width: clamp(170px, 26vw, 250px); height: clamp(140px, 44vh, 200px); border-radius: 18px; }
+  .mn-cup-icon { width: clamp(56px, 20vh, 90px); }
+  .mn-cup-name { font-size: 20px; }
+
+  /* ---- course select: the grid scrolls above a slim info bar */
+  .mn-track-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); top: 60px; bottom: 64px; overflow-y: auto; align-content: start; padding: 4px 6px 8px; width: min(96vw, 1180px); gap: 5px 10px; }
+  .mn-track-cup { font-size: 14px; }
+  .mn-track-cupicon { width: 18px; }
+  .mn-track-outline { height: clamp(36px, 12vh, 60px); }
+  .mn-track-name { font-size: 12px; padding: 4px 8px; }
+  .mn-track-info { bottom: 6px; min-height: 0; padding: 5px 14px 5px 8px; gap: 10px; width: min(96vw, 1180px); }
+  .mn-track-info-outline { width: 44px; height: 44px; }
+  .mn-track-info h3 { margin: 2px 0 0; font-size: 17px; }
+  .mn-track-info p { display: none; }
+  .mn-track-info-meta { gap: 2px; }
+
+  /* ---- options / how to play */
+  .mn-options-body { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); inset: 58px max(10px, env(safe-area-inset-right, 0px)) 8px max(10px, env(safe-area-inset-left, 0px)); gap: 10px; overflow: auto; }
+  .mn-options-panel, .mn-controls-panel { padding: 8px 12px; }
+  .mn-opt { padding: 4px 10px; margin: 2px 0; }
+  .mn-howto-body, .mn-howto-page { font-size: 13px; }
+
+  /* ---- results */
+  .mn-results { --mn-res-cols: 34px 32px 1fr 22px 88px; }
+  .mn-results.is-gp { --mn-res-cols: 34px 32px 1fr 22px 0 40px 44px; }
+  .mn-results.is-gp .mn-res-time { display: none; }
+  .mn-res-hero { display: block; top: 8px; left: max(10px, env(safe-area-inset-left, 0px)); width: min(30vw, 260px); }
+  .mn-res-bigplace { font-size: clamp(40px, 16vh, 70px); }
+  .mn-res-face { width: clamp(70px, 26vh, 120px); }
+  .mn-results.is-standings .mn-res-face { width: clamp(60px, 20vh, 100px); }
+  .mn-res-msg { font-size: 12px; }
+  .mn-res-board { left: auto; top: 6px; right: max(10px, env(safe-area-inset-right, 0px)); width: min(62vw, 620px); }
+  .mn-res-head { margin-bottom: 3px; }
+  .mn-res-title { font-size: 18px; }
+  .mn-res-sub { font-size: 10px; }
+  .mn-res-cols { display: none; }
+  .mn-res-rows { gap: 2px; }
+  .mn-res-row { height: clamp(24px, 7.4vh, 34px); font-size: 13px; }
+  .mn-res-rank { font-size: 16px; }
+  .mn-res-portrait img { width: 22px; height: 22px; }
+  .mn-res-next { display: flex; bottom: 56px; left: max(10px, env(safe-area-inset-left, 0px)); width: min(33vw, 280px); padding: 6px 10px; gap: 8px; }
+  .mn-res-next-outline { width: 44px; height: 44px; }
+  .mn-res-next b { font-size: 15px; margin: 2px 0; }
+  .mn-res-next p { display: none; }
+  .mn-res-actions { left: auto; justify-content: flex-end; bottom: 8px; right: max(10px, env(safe-area-inset-right, 0px)); gap: 8px; }
+  .mn-res-actions .mn-btn { flex: 0 1 auto; padding: 8px 14px; font-size: 15px; }
+  .mn-ttres-hero .mn-res-face { width: clamp(100px, 34vh, 180px); }
+  .mn-ttres-panel { padding: 10px 14px; max-height: calc(100% - 16px); overflow: auto; }
+  .mn-trophy-head h1 { font-size: 30px; }
+
+  /* ---- loading card */
+  .mn-loading-card { flex-direction: row; text-align: left; top: 46%; }
+  .mn-loading-outline { width: clamp(100px, 32vh, 160px); }
+  .mn-loading-head { top: 10px; }
+  .mn-loading-tip { bottom: 44px; }
+  .mn-loading-tipface { width: 48px; }
+  .mn-loading-bubble { font-size: 12px; padding: 6px 12px; }
+  .mn-loading-foot { bottom: 12px; }
+
+  /* ---- online (prefixed: the online screen injects its own stylesheet after this one) */
+  .mn-online .mn-online-body { inset: 58px max(10px, env(safe-area-inset-right, 0px)) 8px max(10px, env(safe-area-inset-left, 0px)); gap: 10px; }
+  .mn-online .mn-online-body.is-lobby { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .mn-online .mn-on-panel { padding: 8px 12px; }
+  .mn-online .mn-on-code-val { font-size: 30px; }
+  .mn-online .mn-on-share .mn-btn, .mn-online .mn-on-row .mn-btn { font-size: 14px; padding: 7px 10px; }
+  .mn-online .mn-on-actions .mn-btn { font-size: 16px; }
+  .mn-online .mn-on-input { font-size: 18px; padding: 7px 12px; }
+  .mn-online .mn-on-input.is-code { font-size: 22px; }
+  .mn-online .mn-on-chars { grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; }
+  .mn-online .mn-on-player { padding: 1px 6px; }
+  .mn-online .mn-on-player img, .mn-online .mn-on-player .mn-on-ph { width: 24px; height: 24px; }
+  .mn-online .mn-on-note { display: none; }
+  .mn-results .mn-onres-status { bottom: 58px; font-size: 12px; padding: 5px 12px; }
+  .mn-results .mn-onres-status b { font-size: 15px; }
+  /* keyboard / gamepad: the hint footer is visible, keep the result buttons above it */
+  html:not(.ssk-touch) .mn-res-actions { bottom: 40px; }
+  html:not(.ssk-touch) .mn-results .mn-onres-status { bottom: 88px; }
+  html:not(.ssk-touch) .mn-res-next { bottom: 88px; }
+}
+
+/* very short screens (small phones, browser bars showing) */
+@media (orientation: landscape) and (max-height: 360px) {
+  .mn-topbar { height: 44px; }
+  .mn-back { width: 36px; height: 36px; }
+  .mn-plate-crumb { display: none; }
+  .mn-plate-title { font-size: 20px; }
+  .mn-main-txt small { display: none; }
+  .mn-cc-gauge, .mn-cc-desc { display: none; }
+  .mn-char-tile { height: clamp(46px, 21vh, 80px); }
+}
+
+/* phones held upright: menus are usable, keep the tap targets roomy */
+@media (orientation: portrait) and (max-width: 500px) {
+  .mn-plate-title { font-size: 22px; }
+  .mn-res-actions .mn-btn { font-size: 15px; }
+  .mn-results .mn-onres-status { bottom: 150px; white-space: normal; text-align: center; width: max-content; max-width: 92vw; }
+}
+
+/* bigger tap targets everywhere on touch screens */
+@media (pointer: coarse) {
+  .mn-sel-arrow { min-width: 32px; min-height: 32px; }
+}

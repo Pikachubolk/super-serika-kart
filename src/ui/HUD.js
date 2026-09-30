@@ -1593,7 +1593,7 @@ export class HUD {
     const foot = h('div', 'hud-title-foot', card);
     const chip = h('span', 'hud-title-chip', foot);
     chip.textContent = this.mode === 'tt' ? `${this.laps} LAPS · TIME TRIAL` : `${this.laps} LAPS · ${this.racers.length || 8} RACERS`;
-    h('span', 'hud-title-skip', foot, '<kbd>Enter</kbd> Skip');
+    h('span', 'hud-title-skip', foot, '<kbd class="hud-skip-kb">Enter</kbd><span class="hud-skip-tap">Tap to</span> Skip');
     this._drawTitleMap(mapBox);
     play(card, [{ transform: 'translateX(-105%) skewX(0)', opacity: 0 }, { transform: 'translateX(2%) skewX(0)', opacity: 1, offset: 0.7 }, { transform: 'translateX(0)', opacity: 1 }], { duration: 650, easing: 'cubic-bezier(.2,.9,.3,1)' });
     play(nm, [{ transform: 'translateX(-12%)', opacity: 0 }, { transform: 'translateX(0)', opacity: 1 }], { duration: 520, delay: 220, easing: 'ease-out', fill: 'backwards' });

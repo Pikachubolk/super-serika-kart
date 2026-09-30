@@ -15,7 +15,7 @@
 //   results go to the 'onlineresults' screen; quitToMenu('online') returns to the lobby.
 
 import * as THREE from 'three';
-import { createRenderer, bindResize, applyQuality } from './renderer.js';
+import { createRenderer, bindResize, applyQuality, setResolutionScale, isMobileDevice } from './renderer.js';
 import { Menus } from '../ui/Menus.js';
 import { NullAudio, FallbackInput, FallbackPortraits } from '../ui/menu/fallbacks.js';
 import { MenuStage } from '../ui/menu/MenuStage.js';
@@ -61,6 +61,10 @@ export class Game {
       /* ignore */
     }
     this.settings = sanitizeSettings(stored);
+    // phones start on medium quality (1.25x pixel ratio instead of 2x) unless the player picked one
+    if (!QUALITIES.includes(stored?.quality) && isMobileDevice()) this.settings.quality = 'medium';
+    this._res = { scale: 1, acc: 0, frames: 0, good: 0 }; // dynamic resolution (races only)
+    this._wake = null; // screen wake lock sentinel
     this.race = null;
     this.raceRunning = false; // race loaded + started (update/render every frame)
     this.paused = false;
@@ -546,7 +550,12 @@ export class Game {
     const o = this.lastRaceOpts;
     this._musicPlaying = null;
     if (race.net) {
-      this.menus.go('onlineresults', { mode: 'vs', trackId: o.trackId, cc: o.cc, results, online: true, hostLeft: !!race.net.hostLeft }, { reset: true });
+      const info = race.net.info || {};
+      this.menus.go(
+        'onlineresults',
+        { mode: 'vs', trackId: o.trackId, cc: o.cc, results, online: true, hostLeft: !!race.net.hostLeft, tour: race.net.resultExtra?.tour || null, round: info.round, rounds: info.rounds },
+        { reset: true }
+      );
       return;
     }
     if (o.mode === 'tt') {
@@ -600,11 +609,68 @@ export class Game {
     }
   }
 
+  /**
+   * Dynamic resolution during races: drop the render scale when the frame rate sags (phones, weak GPUs)
+   * and creep back up when there is headroom. Menus always render at the full quality ratio.
+   */
+  _autoResolution(raw, racing) {
+    const R = this._res;
+    if (!racing || document.hidden || !(raw > 0) || raw > 0.25) {
+      if (!racing && R.scale !== 1) R.scale = setResolutionScale(this.renderer, 1);
+      R.acc = 0;
+      R.frames = 0;
+      return;
+    }
+    R.acc += raw;
+    R.frames++;
+    if (R.acc < 1.5) return;
+    const fps = R.frames / R.acc;
+    R.acc = 0;
+    R.frames = 0;
+    if (fps < 45 && R.scale > 0.5) {
+      R.good = 0;
+      R.scale = setResolutionScale(this.renderer, R.scale - (fps < 30 ? 0.15 : 0.1));
+    } else if (fps > 57 && R.scale < 1) {
+      if (++R.good >= 3) {
+        R.good = 0;
+        R.scale = setResolutionScale(this.renderer, R.scale + 0.1);
+      }
+    } else R.good = 0;
+    window.__ssk.resScale = R.scale;
+  }
+
+  /** Keep the screen awake while racing or in an online room (phones dim/lock otherwise). */
+  _updateWakeLock() {
+    const want = !document.hidden && (this.raceRunning || !!window.__ssk?.net?.active);
+    if (want && !this._wake && !this._wakePending && navigator.wakeLock?.request) {
+      this._wakePending = true;
+      navigator.wakeLock
+        .request('screen')
+        .then((s) => {
+          this._wake = s;
+          s.addEventListener?.('release', () => {
+            if (this._wake === s) this._wake = null;
+          });
+        })
+        .catch(() => {})
+        .finally(() => (this._wakePending = false));
+    } else if (!want && this._wake) {
+      const s = this._wake;
+      this._wake = null;
+      s.release?.().catch?.(() => {});
+    }
+  }
+
   _frame() {
     this.timer.update();
     const raw = this.timer.getDelta();
     const dt = Math.min(raw, 0.1);
     this._trackFps(raw);
+    this._autoResolution(raw, !!(this.race && this.raceRunning && !this.paused));
+    if ((this._wakeT = (this._wakeT || 0) + dt) > 1) {
+      this._wakeT = 0;
+      this._updateWakeLock();
+    }
     this.input.update();
 
     if (this.canPause() && this.input.menuPressed('pause')) this.pauseRace();

@@ -225,6 +225,12 @@ export class TouchControls {
     this._fsBtn.innerHTML = document.fullscreenElement ? ICON.unfull : ICON.full;
   }
 
+  /** Fullscreen + landscape lock (phones). Must run inside a tap handler; silently ignored elsewhere. */
+  enterFullscreen() {
+    if (document.fullscreenElement || document.webkitFullscreenElement) return;
+    this._toggleFullscreen();
+  }
+
   _toggleFullscreen() {
     const de = document.documentElement;
     try {

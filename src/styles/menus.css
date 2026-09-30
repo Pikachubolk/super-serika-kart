@@ -374,6 +374,27 @@
   color: rgba(22, 33, 58, 0.6);
 }
 
+.mn-title-install {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top, 0px));
+  right: max(14px, env(safe-area-inset-right, 0px));
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px 8px 10px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: linear-gradient(100deg, var(--mn-sky), var(--mn-blue2));
+  color: #fff;
+  font: 400 16px/1 var(--ssk-font-display);
+  letter-spacing: 0.04em;
+  box-shadow: 0 4px 14px rgba(18, 140, 255, 0.45);
+  cursor: pointer;
+  z-index: 3;
+}
+.mn-title-install[hidden] { display: none; }
+.mn-title-install .mn-ico { font-size: 16px; rotate: 90deg; }
+
 /* ---------------------------------------------------------------------------------------------- */
 /* main menu                                                                                      */
 /* ---------------------------------------------------------------------------------------------- */

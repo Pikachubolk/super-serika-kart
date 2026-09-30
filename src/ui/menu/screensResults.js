@@ -30,6 +30,10 @@ export class ResultsScreen extends Screen {
   get music() {
     return 'results';
   }
+  /** Standings key of a result row (GP: the character; online tournaments override it). */
+  keyOf(r) {
+    return idOf(r);
+  }
   stageSetup(stage) {
     const player = this.params.results?.find((r) => r.isPlayer);
     stage.setMode('hero', { characterId: player ? idOf(player) : 'serika' });
@@ -48,20 +52,21 @@ export class ResultsScreen extends Screen {
     const P = this.game.portraits;
     const bits = [entry?.name || p.trackId];
     if (p.cc) bits.push(`${p.cc}cc`);
-    if (this.gp) bits.push(`Race ${this.gp.raceIndex + 1}/4`);
+    if (this.gp) bits.push(`Race ${this.gp.raceIndex + 1}/${this.gp.total || 4}`);
     else bits.push(MODE_LABEL[p.mode] || 'VS Race');
 
     const rows = results
       .map((r) => {
         const cid = idOf(r);
-        const pts = this.gp ? this.gp.after[cid] - this.gp.before[cid] : 0;
-        return `<div class="mn-res-row ${placeClass(r.place)}${r.isPlayer ? ' is-player' : ''}" data-id="${esc(cid)}" style="--i:${r.place - 1}">
+        const key = this.keyOf(r);
+        const pts = this.gp ? (this.gp.after[key] || 0) - (this.gp.before[key] || 0) : 0;
+        return `<div class="mn-res-row ${placeClass(r.place)}${r.isPlayer ? ' is-player' : ''}" data-id="${esc(key)}" style="--i:${r.place - 1}">
           <span class="mn-res-rank">${r.place}</span>
           <span class="mn-res-portrait">${P?.get?.(cid) ? `<img src="${P.get(cid)}" alt="">` : ''}</span>
           <span class="mn-res-name">${esc(r.name || getCharacter(cid).name)}</span>
           <span class="mn-res-move"></span>
           <span class="mn-res-time">${r.finished === false ? '<i>~</i>' : ''}${formatRaceTime(r.time)}</span>
-          ${this.gp ? `<span class="mn-res-pts">+${pts}</span><span class="mn-res-total">${this.gp.before[cid] || 0}</span>` : ''}
+          ${this.gp ? `<span class="mn-res-pts">+${pts}</span><span class="mn-res-total">${this.gp.before[key] || 0}</span>` : ''}
         </div>`;
       })
       .join('');
@@ -159,7 +164,7 @@ export class ResultsScreen extends Screen {
     this._cancelCount?.();
     const gp = this.gp;
     const rows = [...this.rowsEl.children];
-    const racePlace = Object.fromEntries(this.results.map((r) => [idOf(r), r.place]));
+    const racePlace = Object.fromEntries(this.results.map((r) => [this.keyOf(r), r.place]));
     const rankBefore = (id) => {
       if (gp.raceIndex === 0) return null;
       const ids = Object.keys(gp.before).sort((a, b) => gp.before[b] - gp.before[a] || (gp.lastPlacesBefore?.[a] ?? 9) - (gp.lastPlacesBefore?.[b] ?? 9));
@@ -187,9 +192,10 @@ export class ResultsScreen extends Screen {
       });
     };
     this.el.classList.add('is-standings');
-    this.el.querySelector('.mn-res-title').textContent = gp.isLast ? 'FINAL STANDINGS' : 'GP STANDINGS';
+    const total = gp.total || 4;
+    this.el.querySelector('.mn-res-title').textContent = gp.isLast ? 'FINAL STANDINGS' : gp.standingsTitle || 'GP STANDINGS';
     const cup = CUPS.find((c) => c.id === gp.cupId);
-    this.el.querySelector('.mn-res-sub').textContent = `${cup?.name || 'Grand Prix'} · ${gp.cc}cc · After race ${gp.raceIndex + 1}/4`;
+    this.el.querySelector('.mn-res-sub').textContent = `${gp.label || cup?.name || 'Grand Prix'} · ${gp.cc}cc · After race ${gp.raceIndex + 1}/${total}`;
     if (instant) apply();
     else {
       flip(this.rowsEl, apply, { duration: 750 });
@@ -200,13 +206,13 @@ export class ResultsScreen extends Screen {
     const hero = this.el.querySelector('.mn-res-hero');
     hero.className = `mn-res-hero ${placeClass(pRow + 1)}`;
     hero.querySelector('.mn-res-bigplace').innerHTML = placeHTML(pRow + 1);
-    hero.querySelector('.mn-res-msg').textContent = gp.isLast ? 'Grand Prix complete!' : 'Overall standing';
+    hero.querySelector('.mn-res-msg').textContent = gp.isLast ? gp.doneText || 'Grand Prix complete!' : 'Overall standing';
     const next = this.el.querySelector('.mn-res-next');
-    if (!gp.isLast && cup) {
-      const nid = cup.tracks[gp.raceIndex + 1];
+    const nid = gp.nextTrackId || cup?.tracks[gp.raceIndex + 1];
+    if (!gp.isLast && nid) {
       const nt = getTrackEntry(nid);
       next.style.setProperty('--mn-accent', nt?.color || '#1fb6ff');
-      next.innerHTML = `<div class="mn-res-next-outline"></div><div><small>NEXT &middot; RACE ${gp.raceIndex + 2}/4</small><b>${esc(nt?.name || nid)}</b><p>${esc(nt?.blurb || '')}</p></div>`;
+      next.innerHTML = `<div class="mn-res-next-outline"></div><div><small>NEXT &middot; RACE ${gp.raceIndex + 2}/${total}</small><b>${esc(nt?.name || nid)}</b><p>${esc(nt?.blurb || '')}</p></div>`;
       mountOutline(next.querySelector('.mn-res-next-outline'), nid);
       next.classList.add('is-in');
     }

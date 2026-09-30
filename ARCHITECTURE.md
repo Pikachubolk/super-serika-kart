@@ -540,3 +540,30 @@ Options: `--keys "Enter@1500,..."` taps, `--hold "Key@start-end"` holds, `--clic
 It prints console warnings/errors and uncaught page errors (exit code 2). **Read the PNGs** with your
 image-reading tool to check visuals. Uses the real GPU; screenshots take a few seconds.
 Uncaught errors coming from files you do not own are probably another agent mid-edit — retry after a bit.
+
+---------------------------------------------------------------------------------------------------------
+
+## 15. Online, mobile & PWA
+
+**Online** (`src/net/`, `src/ui/menu/screensOnline.js`): PeerJS star topology (host relays). Each client has
+an ordered data channel (lobby, race control, items) and an unordered `state` channel for the 20 Hz kart
+snapshots. Every online race belongs to a **tournament** of `settings.rounds` races (1 = single race):
+GP_POINTS per race, keyed by a stable entry key (`p:<tab token>` for humans — the token lives in
+sessionStorage, so a reload / dropped phone rejoins with its points — and `c:<charId>` for the fixed CPU
+crew). Room phases: `lobby` → `race` → `results` (standings; the next race starts for everyone at
+`nextAt`, or sooner when all humans are ready) → … → `lobby` when the tournament is over. Players joining
+mid-race wait for the next race. Puppets render at an adaptive delay (measured lag + jitter per kart), and
+item uses carry the sender's pose so replays spawn where the item was really used. Clients that lose the
+host reconnect automatically once the page is visible again (`src/net/online.js`).
+
+**Mobile**: `src/ui/TouchControls.js` (on-screen driving controls), `src/styles/mobile.css` (compact menu
+layouts for short landscape screens, loaded after menus.css). Phones default to medium quality; during
+races Game scales the render resolution down (to 0.5×) when the frame rate sags and back up when it
+recovers (`setResolutionScale` in renderer.js). The first tap on the title enters fullscreen + landscape;
+a screen wake lock is held while racing or in an online room.
+
+**PWA**: `public/manifest.webmanifest` + `public/icons/*` (rendered from `icon.svg`). `src/pwa/sw.js` is a
+template that the Vite plugin in `vite.config.js` turns into `dist/sw.js` with the build hash and every
+JS/CSS chunk precached, so the whole game runs offline after the first visit (online play needs a network).
+The service worker is registered in production builds only; `beforeinstallprompt` drives the title screen's
+Install App button (iOS gets an "Add to Home Screen" hint).

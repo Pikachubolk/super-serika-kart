@@ -8,6 +8,7 @@
 //   menus.showLoading(info) -> LoadingScreen   menus.wipe(async fn)   menus.toast(text, opts)   menus.flow
 
 import '../styles/menus.css';
+import '../styles/mobile.css';
 import { TitleScreen, MainMenuScreen, EngineScreen, OptionsScreen, HowToScreen } from './menu/screensMain.js';
 import { CharacterScreen, CupScreen, TrackScreen } from './menu/screensSelect.js';
 import { ResultsScreen, TTResultsScreen, TrophyScreen } from './menu/screensResults.js';
@@ -132,6 +133,7 @@ export class Menus {
       }
     }
     this.base = screen;
+    this.root.dataset.screen = this.stack[this.stack.length - 1]?.id || ''; // for screen-specific overlay CSS
     const e = screen.build();
     screen.el = e;
     e.classList.add('mn-screen', 'mn-in', `mn-dir-${dir}`);
@@ -162,6 +164,7 @@ export class Menus {
       this.base = null;
     }
     this.stack = [];
+    this.root.dataset.screen = '';
     this.root.replaceChildren();
   }
 
