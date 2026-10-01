@@ -53,10 +53,13 @@ async function boot() {
 }
 
 // ---- PWA: offline service worker (production builds only; dev keeps Vite's live modules) + install prompt
-if (import.meta.env.PROD && 'serviceWorker' in navigator && !params.has('scene')) {
+// (the desktop app serves its files from app:// and needs neither)
+const onWeb = location.protocol === 'https:' || location.protocol === 'http:';
+if (import.meta.env.PROD && onWeb && 'serviceWorker' in navigator && !params.has('scene')) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch((err) => console.warn('[pwa] service worker failed', err)));
 }
 window.addEventListener('beforeinstallprompt', (e) => {
+  if (window.sskDesktop) return;
   e.preventDefault(); // shown from the title screen's Install button instead of the mini-infobar
   window.__ssk.installPrompt = e;
   window.dispatchEvent(new Event('ssk-installable'));

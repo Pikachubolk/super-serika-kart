@@ -6,6 +6,10 @@ import { logoSVG } from './logo.js';
 import { CC_LIST } from '../../data/engine.js';
 import { ITEMS, ITEM_IDS } from '../../data/items.js';
 import { itemIconSVG, coinIconSVG } from '../itemIcons.js';
+import { SONGS, SOUNDTRACK, RACE_MUSIC } from '../../core/audio/songs.js';
+
+/** Desktop app downloads (GitHub Releases, built by .github/workflows/desktop.yml). */
+const DESKTOP_URL = 'https://github.com/Pikachubolk/super-serika-kart/releases/latest';
 
 // ================================================================================================
 // Title
@@ -44,10 +48,17 @@ export class TitleScreen extends Screen {
         <span class="mn-hint-pad">PRESS <b class="mn-kbd mn-padkey mn-pad-a">A</b> TO START</span>
       </button>
       <div class="mn-title-foot"><span>Fan-made tribute &middot; not affiliated with NEXON Games or Yostar</span><span>v1.0</span></div>
-      <button class="mn-title-install" hidden>${ICONS.arrowR}<span>Install App</span></button>
+      <div class="mn-title-apps">
+        <a class="mn-title-install mn-title-download" href="${DESKTOP_URL}" target="_blank" rel="noopener" hidden>${ICONS.arrowR}<span>Desktop App</span></a>
+        <button class="mn-title-install" data-install hidden>${ICONS.arrowR}<span>Install App</span></button>
+      </div>
     </div>`);
     e.addEventListener('click', () => this._start());
-    this._installBtn = e.querySelector('.mn-title-install');
+    this._installBtn = e.querySelector('[data-install]');
+    // desktop browsers (not phones, not the app itself) get a link to the Windows / Mac / Linux builds
+    const dl = e.querySelector('.mn-title-download');
+    dl.hidden = !!window.sskDesktop || window.matchMedia?.('(pointer: coarse)').matches;
+    dl.addEventListener('click', (ev) => ev.stopPropagation());
     this._installBtn.addEventListener('click', (ev) => {
       ev.stopPropagation(); // not a "start" tap
       this._install();
@@ -64,7 +75,7 @@ export class TitleScreen extends Screen {
   _syncInstall() {
     const standalone = window.matchMedia?.('(display-mode: standalone), (display-mode: fullscreen)').matches || navigator.standalone;
     const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    this._installBtn.hidden = standalone || !(window.__ssk?.installPrompt || ios);
+    this._installBtn.hidden = standalone || !!window.sskDesktop || !(window.__ssk?.installPrompt || ios);
   }
   async _install() {
     const p = window.__ssk?.installPrompt;
@@ -226,9 +237,30 @@ const HUDMAP = [
   { v: 'none', label: 'Hidden', desc: 'A clean screen. For the purists, Sensei.' },
 ];
 
+const RACE_MUSIC_OPTS = [
+  { v: 'course', label: 'Course Theme', desc: 'Every course plays its own theme.' },
+  { v: 'shuffle', label: 'Shuffle', desc: `A random track from the ${RACE_MUSIC.length}-track race mix every race.` },
+  ...RACE_MUSIC.map((k) => {
+    const t = SOUNDTRACK.find((x) => x.key === k);
+    return { v: k, label: SONGS[k]?.name || k, desc: `Always race to "${SONGS[k]?.name || k}" (${t?.style || 'race'}).` };
+  }),
+];
+const SLIDERS = ['master', 'music', 'sfx', 'engine', 'voice'];
+const TOGGLES = ['showFps', 'bgMute', 'mono'];
+const SELECTS = { quality: QUALITY, hudMap: HUDMAP, raceMusic: RACE_MUSIC_OPTS };
+const OPTION_TABS = [
+  ['sound', 'Sound'],
+  ['display', 'Display'],
+  ['controls', 'Controls'],
+];
+
 export class OptionsScreen extends Screen {
+  get music() {
+    return 'lounge';
+  }
   build() {
     const s = this.game.settings;
+    this.tab = this.params.tab || 'sound';
     const slider = (key, label) => `<div class="mn-opt" data-focus data-key="${key}" data-kind="slider">
         <span class="mn-opt-label">${label}</span>
         <div class="mn-slider"><div class="mn-slider-track"><div class="mn-slider-fill"></div><div class="mn-slider-knob"></div></div><span class="mn-slider-val"></span></div>
@@ -237,27 +269,41 @@ export class OptionsScreen extends Screen {
         <span class="mn-opt-label">${label}</span>
         <div class="mn-select"><span class="mn-sel-arrow" data-dir="left">${ICONS.arrowL}</span><span class="mn-sel-val"></span><span class="mn-sel-arrow" data-dir="right">${ICONS.arrowR}</span></div>
       </div>`;
+    const toggle = (key, label) => `<div class="mn-opt" data-focus data-key="${key}" data-kind="toggle"><span class="mn-opt-label">${label}</span><span class="mn-toggle"><i></i></span></div>`;
+    const button = (key, label, ico) => `<div class="mn-opt mn-opt-btn" data-focus data-key="${key}"><span class="mn-opt-label">${label}</span>${ico}</div>`;
     const ctrlRows = CONTROL_REF.map((c) => `<tr><th>${esc(c.action)}</th><td>${ctrlCell(c, 'keys')}</td><td>${ctrlCell(c, 'pad')}</td></tr>`).join('');
-    const e = el(`<div class="mn-options">
+    const e = el(`<div class="mn-options is-tabbed">
       ${topbar({ title: 'Options', crumb: 'Settings', color: '#1fb6ff' })}
+      <nav class="mn-tabs">${OPTION_TABS.map(([k, label]) => `<button class="mn-tab" data-focus data-key="tab:${k}">${label}</button>`).join('')}</nav>
       <div class="mn-options-body">
-        <section class="mn-panel mn-options-panel">
-          <h2 class="mn-sec">Sound</h2>
-          ${slider('master', 'Master Volume')}
+        <section class="mn-panel mn-options-panel mn-opt-page" data-page="sound">
+          <h2 class="mn-sec">Volume</h2>
+          ${slider('master', 'Master')}
           ${slider('music', 'Music')}
-          ${slider('sfx', 'Sound Effects')}
+          ${slider('sfx', 'Effects')}
+          ${slider('engine', 'Engines')}
+          ${slider('voice', 'Voices')}
+          <h2 class="mn-sec">Music</h2>
+          ${select('raceMusic', 'Race Music')}
+          ${button('soundtest', `Sound Test <small>${SOUNDTRACK.length} tracks</small>`, ICONS.play)}
+          <h2 class="mn-sec">Output</h2>
+          ${toggle('bgMute', 'Mute in Background')}
+          ${toggle('mono', 'Mono Audio')}
+          ${button('resetSound', 'Reset Sound Settings', ICONS.retry)}
+        </section>
+        <section class="mn-panel mn-options-panel mn-opt-page" data-page="display">
           <h2 class="mn-sec">Display</h2>
           ${select('quality', 'Graphics Quality')}
           ${select('hudMap', 'HUD Map')}
-          <div class="mn-opt" data-focus data-key="showFps" data-kind="toggle"><span class="mn-opt-label">Show FPS</span><span class="mn-toggle"><i></i></span></div>
-          <div class="mn-opt mn-opt-btn" data-focus data-key="reset"><span class="mn-opt-label">Reset to Defaults</span>${ICONS.retry}</div>
-          <p class="mn-opt-help"></p>
+          ${toggle('showFps', 'Show FPS')}
+          ${button('reset', 'Reset All Settings', ICONS.retry)}
         </section>
-        <section class="mn-panel mn-controls-panel">
+        <section class="mn-panel mn-controls-panel mn-opt-page" data-page="controls">
           <h2 class="mn-sec">Controls</h2>
           <table class="mn-ctrl-table"><thead><tr><th></th><td>Keyboard</td><td>Controller</td></tr></thead><tbody>${ctrlRows}</tbody></table>
           <p class="mn-ctrl-note">Menus: arrows / WASD to move, Enter / Space to select, Esc / Backspace to go back. Controllers (Xbox / PlayStation / Switch Pro) plug and play: D-pad or left stick with A / B. On phones and tablets just tap &mdash; on-screen driving controls appear during races.</p>
         </section>
+        <p class="mn-opt-help"></p>
       </div>
       ${footer([
         ['ud', 'Move'],
@@ -291,48 +337,91 @@ export class OptionsScreen extends Screen {
       });
     }
     this._render(e, s);
+    this._showTab(this.tab, e);
     return e;
   }
 
+  defaultFocus() {
+    return this.el.querySelector(`[data-key="tab:${this.tab}"]`) || super.defaultFocus();
+  }
+
+  leave() {
+    clearTimeout(this._previewT);
+  }
+
+  _showTab(tab, root = this.el) {
+    this.tab = tab;
+    for (const t of root.querySelectorAll('.mn-tab')) t.classList.toggle('is-active', t.dataset.key === `tab:${tab}`);
+    for (const p of root.querySelectorAll('.mn-opt-page')) p.classList.toggle('is-active', p.dataset.page === tab);
+    this.menus.flow.optionsTab = tab;
+  }
+
   _render(root = this.el, s = this.game.settings) {
-    for (const key of ['master', 'music', 'sfx']) {
+    for (const key of SLIDERS) {
       const o = root.querySelector(`[data-key="${key}"]`);
       const v = Math.max(0, Math.min(1, Number(s[key]) || 0));
       o.querySelector('.mn-slider-fill').style.transform = `scaleX(${v})`;
       o.querySelector('.mn-slider-knob').style.left = `${v * 100}%`;
-      o.querySelector('.mn-slider-val').textContent = Math.round(v * 100);
+      o.querySelector('.mn-slider-val').textContent = v === 0 ? 'OFF' : Math.round(v * 100);
+      o.classList.toggle('is-muted', v === 0);
     }
-    const q = QUALITY.find((x) => x.v === s.quality) || QUALITY[0];
-    root.querySelector('[data-key="quality"] .mn-sel-val').textContent = q.label;
-    const hm = HUDMAP.find((x) => x.v === s.hudMap) || HUDMAP[0];
-    root.querySelector('[data-key="hudMap"] .mn-sel-val').textContent = hm.label;
-    root.querySelector('[data-key="showFps"]').classList.toggle('is-on', !!s.showFps);
+    for (const [key, list] of Object.entries(SELECTS)) {
+      const cur = list.find((x) => x.v === s[key]) || list[0];
+      root.querySelector(`[data-key="${key}"] .mn-sel-val`).textContent = cur.label;
+    }
+    for (const key of TOGGLES) root.querySelector(`[data-key="${key}"]`).classList.toggle('is-on', !!s[key]);
   }
 
   _help(key) {
     const s = this.game.settings;
+    if (key?.startsWith('tab:')) return { sound: 'Volumes, race music, the Sound Test and audio output.', display: 'Graphics quality and the in-race HUD.', controls: 'Keyboard, controller and touch controls.' }[key.slice(4)] || '';
+    if (SELECTS[key]) return (SELECTS[key].find((x) => x.v === s[key]) || SELECTS[key][0]).desc;
     const map = {
       master: 'Overall volume of everything.',
-      music: 'Volume of the background music.',
-      sfx: 'Volume of engines, items, voices and menu sounds.',
-      quality: (QUALITY.find((x) => x.v === s.quality) || QUALITY[0]).desc,
-      hudMap: (HUDMAP.find((x) => x.v === s.hudMap) || HUDMAP[0]).desc,
+      music: 'Background music in menus and races.',
+      sfx: 'Items, impacts, coins, countdown and menu sounds.',
+      engine: 'Kart engines, drifts and boosts (yours and your rivals’).',
+      voice: 'Character voice lines when they get hit, win or use items.',
+      soundtest: 'Listen to the whole soundtrack and pick your race music.',
+      bgMute: 'Silence the game while it is in the background (another tab or app).',
+      mono: 'Mix everything to mono — useful with one earbud or a single speaker.',
+      resetSound: 'Restore the sound options to their default values.',
       showFps: 'Show a frame-rate counter in the corner of the screen.',
-      reset: 'Restore every option to its default value.',
+      reset: 'Restore every option (sound and display) to its default value.',
     };
     return map[key] || '';
   }
 
-  _set(key, value) {
-    this.game.applySettings({ [key]: value });
-    this._render();
-    const help = this.el.querySelector('.mn-opt-help');
+  _setHelp(key) {
+    const help = this.el?.querySelector('.mn-opt-help');
     if (help) help.textContent = this._help(key);
   }
 
+  _set(key, value) {
+    const before = this.game.settings[key];
+    this.game.applySettings({ [key]: value });
+    this._render();
+    this._setHelp(key);
+    if (before !== this.game.settings[key]) this._preview(key);
+  }
+
+  /** Let the player hear what a volume slider controls (debounced while dragging). */
+  _preview(key) {
+    clearTimeout(this._previewT);
+    const a = this.game.audio;
+    const char = this.menus.flow.characterId || 'serika';
+    const fn = {
+      sfx: () => this.sfx('coin'),
+      engine: () => a?.previewEngine?.(char),
+      voice: () => a?.voice?.(char, 'select'),
+    }[key];
+    if (fn) this._previewT = setTimeout(fn, 180);
+  }
+
   onFocus(e) {
-    const help = this.el.querySelector('.mn-opt-help');
-    if (help) help.textContent = this._help(e.dataset.key);
+    const key = e.dataset.key;
+    if (key?.startsWith('tab:')) this._showTab(key.slice(4));
+    this._setHelp(key);
   }
 
   _cycle(key, list, dir) {
@@ -353,7 +442,7 @@ export class OptionsScreen extends Screen {
       return true;
     }
     if (kind === 'select') {
-      this._cycle(key, key === 'quality' ? QUALITY : HUDMAP, d);
+      this._cycle(key, SELECTS[key], d);
       this.sfx('menuMove');
       this._bump(e);
       return true;
@@ -378,15 +467,31 @@ export class OptionsScreen extends Screen {
     if (!e) return;
     const key = e.dataset.key;
     const kind = e.dataset.kind;
+    if (key.startsWith('tab:')) {
+      // move into the page
+      const first = this.el.querySelector(`.mn-opt-page[data-page="${key.slice(4)}"] [data-focus]`);
+      if (first) this.menus.setFocus(this, first);
+      return;
+    }
     if (kind === 'select') {
       const arrow = ev?.target?.closest?.('[data-dir]');
       const d = arrow?.dataset.dir === 'left' ? -1 : 1;
-      this._cycle(key, key === 'quality' ? QUALITY : HUDMAP, d);
+      this._cycle(key, SELECTS[key], d);
       this._bump(e);
       this.sfx('menuSelect');
     } else if (kind === 'toggle') {
       this._set(key, !this.game.settings[key]);
       this.sfx('menuSelect');
+    } else if (kind === 'slider') {
+      this._preview(key);
+    } else if (key === 'soundtest') {
+      this.sfx('menuSelect');
+      this.menus.go('soundtest');
+    } else if (key === 'resetSound') {
+      this.game.resetSoundSettings?.();
+      this._render();
+      this.sfx('menuSelect');
+      this.menus.toast('Sound settings reset');
     } else if (key === 'reset') {
       this.game.resetSettings?.();
       this._render();
@@ -416,6 +521,9 @@ const TECHNIQUES = [
 ];
 
 export class HowToScreen extends Screen {
+  get music() {
+    return 'lounge';
+  }
   build() {
     this.tab = this.params.tab || 'controls';
     const ctrlCard = (title, key) => `<div class="mn-howto-card">

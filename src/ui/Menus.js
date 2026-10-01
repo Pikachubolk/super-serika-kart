@@ -14,6 +14,7 @@ import { CharacterScreen, CupScreen, TrackScreen } from './menu/screensSelect.js
 import { ResultsScreen, TTResultsScreen, TrophyScreen } from './menu/screensResults.js';
 import { PauseMenu, ConfirmDialog } from './menu/screensModal.js';
 import { OnlineScreen, OnlineResultsScreen } from './menu/screensOnline.js';
+import { SoundTestScreen } from './menu/screensSound.js';
 import { LoadingScreen, wipe, toast } from './menu/overlays.js';
 import { pickDirectional } from './menu/kit.js';
 
@@ -31,6 +32,7 @@ export const SCREENS = {
   trophy: TrophyScreen,
   online: OnlineScreen,
   onlineresults: OnlineResultsScreen,
+  soundtest: SoundTestScreen,
 };
 
 const DIRS = ['up', 'down', 'left', 'right'];

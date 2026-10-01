@@ -28,6 +28,8 @@ export default defineConfig({
     strictPort: true,
     // Several agents / tools hit the dev server concurrently; keep HMR from full-reloading tool pages.
     hmr: { overlay: false },
+    // online relay in dev: `npm run relay` (server/server.mjs on :8787)
+    proxy: { '/ws': { target: 'ws://localhost:8787', ws: true } },
   },
   build: {
     target: 'es2022',

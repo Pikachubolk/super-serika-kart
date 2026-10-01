@@ -144,7 +144,7 @@ export class OnlineScreen extends Screen {
     this.autoJoin = !!params.join && (!!nick || hasStoredNick());
   }
   get music() {
-    return 'menu';
+    return 'online';
   }
   stageSetup(stage) {
     stage.setMode('backdrop');
@@ -235,7 +235,7 @@ export class OnlineScreen extends Screen {
           <button class="mn-btn" data-focus data-key="join" ${this.busy ? 'disabled' : ''} style="flex:0 0 auto">${ICONS.play}<span>Join</span></button>
         </div>
         <div class="mn-on-status${this.statusKind ? ` is-${this.statusKind}` : ''}">${esc(this.status)}</div>
-        <p class="mn-on-note">Up to ${MAX_PLAYERS} players. Share the 6-character room code or an invite link. Uses peer-to-peer WebRTC and a free public matchmaking server — an internet connection is required.</p>
+        <p class="mn-on-note">Up to ${MAX_PLAYERS} players. Share the 6-character room code or an invite link. Runs through the game server, so it works on school and office networks too — an internet connection is required.</p>
       </section>`;
     const nick = this.body.querySelector('[data-input="nick"]');
     const code = this.body.querySelector('[data-input="code"]');
@@ -550,6 +550,12 @@ function hasStoredNick() {
 // ================================================================================================
 
 export class OnlineResultsScreen extends ResultsScreen {
+  /** Tournament standings get their own anthem; the final standings the trophy fanfare. */
+  get music() {
+    const t = this.params.tour;
+    if (t && t.rounds > 1 && !this.params.hostLeft) return t.done ? 'trophy' : 'tournament';
+    return 'results';
+  }
   keyOf(r) {
     return r.key || r.id;
   }

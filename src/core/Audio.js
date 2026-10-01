@@ -3,7 +3,12 @@
 // API CONTRACT (ARCHITECTURE.md §12):
 //   new AudioManager()
 //   audio.unlock()                               call from any user gesture; safe to call repeatedly
-//   audio.setVolumes({ master, music, sfx })      0..1 each (any subset; other keys ignored). Perceptual (squared) taper.
+//   audio.setVolumes({ master, music, sfx, engine, voice })   0..1 each (any subset; other keys ignored).
+//                                                Perceptual (squared) taper. sfx = effects (items, impacts, menus),
+//                                                engine = kart engines, voice = character voices.
+//   audio.setBackgroundMute(bool)                 fade everything out while the tab is hidden (default on)
+//   audio.setMono(bool)                           fold the output down to mono (one-earbud / accessibility)
+//   audio.previewEngine(characterId, seconds)     short engine rev (Options slider preview)
 //   audio.playMusic(key, { fadeIn=0.5, crossfade=0.6, restart=false, delay=0, tempo=1 })
 //        key: title|menu|charselect|results|victory|defeat|trophy|abydos|shibaseki|trinity|millennium|hyakkiyako|
 //             redwinter|gehenna|arona (unknown keys -> default race theme). Same key while playing = no-op.
@@ -49,7 +54,9 @@ const taper = (v) => v * v;
 export class AudioManager {
   constructor() {
     this.ctx = null;
-    this.volumes = { master: 0.8, music: 0.6, sfx: 0.9 };
+    this.volumes = { master: 0.8, music: 0.6, sfx: 0.9, engine: 0.8, voice: 0.9 };
+    this.bgMute = true;
+    this.mono = false;
     this.musicKey = null;
     this.player = null;
     this.paused = false;
@@ -124,6 +131,11 @@ export class AudioManager {
       return g;
     };
     this._master = G(taper(this.volumes.master));
+    this._bg = G(this._hiddenNow() ? 0 : 1); // background mute
+    this._mono = G(1); // mono fold-down (only in the chain when enabled)
+    this._mono.channelCount = 1;
+    this._mono.channelCountMode = 'explicit';
+    this._mono.channelInterpretation = 'speakers';
     const lim = ctx.createDynamicsCompressor();
     lim.threshold.value = -4;
     lim.knee.value = 3;
@@ -134,7 +146,8 @@ export class AudioManager {
     this._analyser = ctx.createAnalyser();
     this._analyser.fftSize = 2048;
     this._analyser.smoothingTimeConstant = 0.7;
-    this._master.connect(lim).connect(this._analyser).connect(ctx.destination);
+    this._master.connect(this._bg).connect(lim).connect(this._analyser);
+    this._routeOutput();
 
     this._musicVol = G(taper(this.volumes.music) * MUSIC_LEVEL);
     this._musicDuck = G(1);
@@ -145,10 +158,14 @@ export class AudioManager {
     this._sfxVol.connect(this._master);
     this._sfxBus = G(1);
     this._sfxBus.connect(this._sfxVol);
+    this._engineVol = G(taper(this.volumes.engine));
+    this._engineVol.connect(this._master);
     this._engineBus = G(1);
-    this._engineBus.connect(this._sfxVol);
+    this._engineBus.connect(this._engineVol);
+    this._voiceVol = G(taper(this.volumes.voice));
+    this._voiceVol.connect(this._master);
     this._voiceBus = G(VOICE_LEVEL);
-    this._voiceBus.connect(this._sfxVol);
+    this._voiceBus.connect(this._voiceVol);
 
     // shared sfx reverb
     this._sfxRevIn = G(1);
@@ -157,9 +174,41 @@ export class AudioManager {
     const rOut = G(0.7);
     this._sfxRevIn.connect(conv).connect(rOut).connect(this._sfxVol);
     this._voiceRev = G(0.12);
-    this._voiceBus.connect(this._voiceRev).connect(this._sfxRevIn);
+    this._voiceVol.connect(this._voiceRev).connect(this._sfxRevIn); // after the voice volume
 
     this._musicIR = reverbIR(ctx, { seconds: 2.4, decay: 3, damp: 0.75 });
+  }
+
+  _hiddenNow() {
+    return typeof document !== 'undefined' && document.hidden;
+  }
+
+  _routeOutput() {
+    const a = this._analyser;
+    try {
+      a.disconnect();
+      this._mono.disconnect();
+    } catch {
+      /* not connected yet */
+    }
+    if (this.mono) a.connect(this._mono).connect(this.ctx.destination);
+    else a.connect(this.ctx.destination);
+  }
+
+  setMono(on) {
+    this.mono = !!on;
+    if (this.ctx) this._routeOutput();
+  }
+
+  setBackgroundMute(on) {
+    this.bgMute = !!on;
+    this._applyBackground();
+  }
+
+  _applyBackground() {
+    if (!this.ctx || !this._bg) return;
+    const off = this.bgMute && this._hiddenNow();
+    this._bg.gain.setTargetAtTime(off ? 0 : 1, this.ctx.currentTime, off ? 0.08 : 0.15);
   }
 
   _onRunning() {
@@ -170,6 +219,7 @@ export class AudioManager {
         this._onVis = () => {
           this._tick();
           this._applyEngineGain();
+          this._applyBackground();
         };
         document.addEventListener('visibilitychange', this._onVis);
       }
@@ -200,7 +250,7 @@ export class AudioManager {
   // ----------------------------------------------------------------------------------------------------------
 
   setVolumes(v = {}) {
-    for (const k of ['master', 'music', 'sfx']) {
+    for (const k of ['master', 'music', 'sfx', 'engine', 'voice']) {
       const x = Number(v[k]);
       if (v[k] !== undefined && v[k] !== null && Number.isFinite(x)) this.volumes[k] = clamp01(x);
     }
@@ -209,6 +259,8 @@ export class AudioManager {
     this._master.gain.setTargetAtTime(taper(this.volumes.master), now, 0.03);
     this._musicVol.gain.setTargetAtTime(taper(this.volumes.music) * MUSIC_LEVEL, now, 0.03);
     this._sfxVol.gain.setTargetAtTime(taper(this.volumes.sfx) * SFX_LEVEL, now, 0.03);
+    this._engineVol.gain.setTargetAtTime(taper(this.volumes.engine), now, 0.03);
+    this._voiceVol.gain.setTargetAtTime(taper(this.volumes.voice), now, 0.03);
   }
 
   // ----------------------------------------------------------------------------------------------------------
@@ -444,6 +496,29 @@ export class AudioManager {
     const e = new EngineSound(this, characterId);
     this._engines.add(e);
     return e;
+  }
+
+  /** A short engine rev for the Options preview (needs an unlocked context). */
+  previewEngine(characterId = 'serika', seconds = 1.1) {
+    if (!this.unlocked) return;
+    this._preview?.stop();
+    const e = this.createEngine(characterId);
+    this._preview = e;
+    const t0 = performance.now();
+    const step = () => {
+      if (this._preview !== e) return;
+      const t = (performance.now() - t0) / 1000;
+      if (t >= seconds) {
+        e.stop();
+        this._engines.delete(e);
+        this._preview = null;
+        return;
+      }
+      const up = Math.min(1, t / (seconds * 0.55));
+      e.update(0.2 + up * 0.75, t < seconds * 0.75 ? 1 : 0, false, false);
+      setTimeout(step, 33);
+    };
+    step();
   }
 
   voice(characterId, kind, opts = {}) {

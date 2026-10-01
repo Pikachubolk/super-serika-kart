@@ -3,3 +3,6 @@ dist
 shots
 .git
 *.log
+release
+desktop/node_modules
+desktop/dist

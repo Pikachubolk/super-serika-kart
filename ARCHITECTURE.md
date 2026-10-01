@@ -545,9 +545,12 @@ Uncaught errors coming from files you do not own are probably another agent mid-
 
 ## 15. Online, mobile & PWA
 
-**Online** (`src/net/`, `src/ui/menu/screensOnline.js`): PeerJS star topology (host relays). Each client has
-an ordered data channel (lobby, race control, items) and an unordered `state` channel for the 20 Hz kart
-snapshots. Every online race belongs to a **tournament** of `settings.rounds` races (1 = single race):
+**Online** (`src/net/`, `src/ui/menu/screensOnline.js`): star topology (the host's browser runs the room and
+relays race traffic). Transport: the game server's **WebSocket relay** (`server/relay.mjs` + `src/net/relay.js`,
+`wss://<site>/ws`), a switchboard that mimics the PeerJS API, so online play works on school / office
+networks that block WebRTC; `?net=p2p` uses PeerJS instead. Dev: `npm run relay` (Vite proxies `/ws` to it).
+Each client has an ordered connection (lobby, race control, items) and a separate `state` connection for the
+20 Hz kart snapshots. Every online race belongs to a **tournament** of `settings.rounds` races (1 = single race):
 GP_POINTS per race, keyed by a stable entry key (`p:<tab token>` for humans — the token lives in
 sessionStorage, so a reload / dropped phone rejoins with its points — and `c:<charId>` for the fixed CPU
 crew). Room phases: `lobby` → `race` → `results` (standings; the next race starts for everyone at
@@ -567,3 +570,17 @@ template that the Vite plugin in `vite.config.js` turns into `dist/sw.js` with t
 JS/CSS chunk precached, so the whole game runs offline after the first visit (online play needs a network).
 The service worker is registered in production builds only; `beforeinstallprompt` drives the title screen's
 Install App button (iOS gets an "Add to Home Screen" hint).
+
+**Server** (`server/server.mjs`, Dockerfile): one Node process serves `dist/` (gzip, immutable `/assets/*`,
+index.html fallback) and the relay at `/ws`; `/healthz` reports relay stats.
+
+**Desktop app** (`desktop/`, Electron): bundles the web build (served from `app://`), forces the discrete GPU
+on hybrid laptops and disables background throttling, plays online through `wss://kart.serika.dev/ws`.
+`npm run build` in the root, then `npm run dist:win|dist:linux|dist:mac` in `desktop/`;
+`.github/workflows/desktop.yml` builds all three on a `v*` tag. `SSK_SMOKE=out.png npx electron .` renders
+hidden and saves a screenshot (packaging check).
+
+**Sound**: Options → Sound has Master / Music / Effects / Engines / Voices volumes (separate buses in
+AudioManager), Race Music (course theme / shuffle / any race track, `game.raceMusicFor`), Mute in Background
+and Mono Audio. `SOUNDTRACK` / `RACE_MUSIC` in songs.js list every song (new ones live in songsExtra.js);
+the Sound Test screen (`screensSound.js`) plays them with a live spectrum.

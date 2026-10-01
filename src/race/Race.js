@@ -376,7 +376,8 @@ export class Race {
     const music = this.track.theme?.music ?? this.track.def?.theme?.music;
     try {
       this.game.audio?.setMusicTempo?.(1);
-      this.game.audio?.playMusic?.(music || 'abydos', { fadeIn: 0.25, restart: true });
+      const key = this.game.raceMusicFor?.(music || 'abydos') || music || 'abydos'; // Options -> Race Music
+      this.game.audio?.playMusic?.(key, { fadeIn: 0.25, restart: true });
     } catch {
       /* ignore */
     }

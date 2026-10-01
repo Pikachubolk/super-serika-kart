@@ -1,7 +1,9 @@
-// Online session (owner: online agent): PeerJS (WebRTC data channels) star topology with shareable room codes.
+// Online session (owner: online agent): star topology with shareable room codes.
 //
 //   Host = room owner, peer id `ssk-room-<CODE>`; clients connect to it and every message goes through the
-//   host (it relays race traffic to the other clients). Signalling uses the free public PeerJS server.
+//   host (it relays race traffic to the other clients). Transport: the game server's WebSocket relay
+//   (src/net/relay.js + server/relay.mjs, same HTTPS origin, works behind school / office firewalls);
+//   `?net=p2p` switches to PeerJS WebRTC data channels via the public PeerJS server instead.
 //   Each client opens two data channels to the host: an ordered one for lobby / race control / items and an
 //   unordered one ('state') for the 20 Hz kart snapshots, so one lost packet never stalls the others.
 //
@@ -34,12 +36,12 @@
 //                                    'closed' ({ reason, role, canRejoin }), 'loaded' (peerId, host only)
 //   helpers: makeCode(), normalizeCode(text), inviteLink(code), loadNick(), saveNick(name), trackChoiceLabel(id)
 
-import { Peer } from 'peerjs';
+import { RelayPeer } from './relay.js';
 import { CHARACTERS } from '../data/characters.js';
 import { TRACKS, CUPS, getTrackEntry } from '../data/tracks/index.js';
 import { ENGINE_CLASSES, RACERS_PER_RACE, GP_POINTS } from '../data/engine.js';
 
-export const NET_VERSION = 2;
+export const NET_VERSION = 3; // 3: WebSocket relay transport
 export const ROOM_PREFIX = 'ssk-room-';
 export const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I
 export const CODE_LEN = 6;
@@ -78,7 +80,9 @@ export function normalizeCode(text) {
     .slice(0, CODE_LEN);
 }
 
-export const inviteLink = (code) => `${location.origin}${location.pathname.replace(/[^/]*$/, '')}?join=${code}`;
+/** Invite link to the web version (the desktop app runs from app://, which friends cannot open). */
+export const inviteLink = (code) =>
+  /^https?:$/.test(location.protocol) ? `${location.origin}${location.pathname.replace(/[^/]*$/, '')}?join=${code}` : `https://kart.serika.dev/?join=${code}`;
 
 export function loadNick() {
   try {
@@ -127,6 +131,15 @@ export function trackChoiceLabel(id) {
   return getTrackEntry(id)?.name || id;
 }
 
+/** 'relay' (default: WebSocket via the game server) or 'p2p' (PeerJS WebRTC, ?net=p2p). */
+function transport() {
+  try {
+    return new URLSearchParams(location.search).get('net') === 'p2p' ? 'p2p' : 'relay';
+  } catch {
+    return 'relay';
+  }
+}
+
 const cleanName = (n) => String(n || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 16) || 'Sensei';
 const validChar = (id) => (CHARACTERS.some((c) => c.id === id) ? id : 'serika');
 const cleanToken = (t) => (typeof t === 'string' && /^[A-Za-z0-9]{8,24}$/.test(t) ? t : null);
@@ -137,7 +150,7 @@ function friendlyError(err) {
   if (t === 'unavailable-id') return 'That room code is taken. Try again.';
   if (t === 'browser-incompatible') return 'This browser does not support online play (WebRTC).';
   if (t === 'network' || t === 'server-error' || t === 'socket-error' || t === 'socket-closed' || t === 'disconnected')
-    return 'Could not reach the matchmaking server. Check your internet connection (or firewall) and try again.';
+    return 'Could not reach the game server. Check your internet connection and try again.';
   if (t === 'webrtc' || t === 'negotiation-failed') return 'Could not connect to the other player (a firewall or strict network may block peer-to-peer).';
   return err?.message || 'Connection failed.';
 }
@@ -249,11 +262,19 @@ export class NetSession {
     throw new Error(friendlyError(lastErr));
   }
 
+  async _makePeer(id) {
+    if (transport() === 'p2p') {
+      const { Peer } = await import('peerjs');
+      return id ? new Peer(id, { debug: 1 }) : new Peer({ debug: 1 });
+    }
+    return new RelayPeer(id);
+  }
+
   _openPeer(id) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       let peer;
       try {
-        peer = id ? new Peer(id, { debug: 1 }) : new Peer({ debug: 1 });
+        peer = await this._makePeer(id);
       } catch (err) {
         reject(err);
         return;

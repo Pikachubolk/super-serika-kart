@@ -1,0 +1,67 @@
+{
+  "name": "super-serika-kart-desktop",
+  "productName": "Super Serika Kart",
+  "version": "1.1.0",
+  "description": "Super Serika Kart - desktop app",
+  "author": "Pikachubolk",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "app": "npm run copy && electron .",
+    "copy": "node copy-build.cjs",
+    "dist:linux": "npm run copy && electron-builder --linux AppImage",
+    "dist:win": "npm run copy && electron-builder --win nsis portable",
+    "dist:mac": "npm run copy && electron-builder --mac dmg"
+  },
+  "build": {
+    "appId": "dev.serika.kart",
+    "productName": "Super Serika Kart",
+    "artifactName": "SuperSerikaKart-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "app/**/*"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "build/icon.png",
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "SuperSerikaKart-${version}-portable.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Super Serika Kart"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Game",
+      "icon": "build/icon.png"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.racing-games",
+      "icon": "build/icon.png"
+    }
+  },
+  "devDependencies": {
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3"
+  },
+  "desktopName": "super-serika-kart.desktop"
+}

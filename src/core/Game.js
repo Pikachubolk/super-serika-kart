@@ -25,8 +25,22 @@ import { getTTBest, setTTBest, awardTrophy, sleep } from '../ui/menu/kit.js';
 import { CHARACTERS, getCharacter } from '../data/characters.js';
 import { CUPS, TRACKS, getTrackEntry } from '../data/tracks/index.js';
 import { GP_POINTS, ENGINE_CLASSES } from '../data/engine.js';
+import { RACE_MUSIC } from './audio/songs.js';
 
-export const DEFAULT_SETTINGS = Object.freeze({ master: 0.8, music: 0.6, sfx: 0.9, quality: 'high', hudMap: 'both', showFps: false });
+export const DEFAULT_SETTINGS = Object.freeze({
+  master: 0.8,
+  music: 0.6,
+  sfx: 0.9,
+  engine: 0.8,
+  voice: 0.9,
+  bgMute: true, // silence the game while the tab / app is in the background
+  mono: false,
+  raceMusic: 'course', // 'course' (each course's theme) | 'shuffle' | a RACE_MUSIC key
+  quality: 'high',
+  hudMap: 'both',
+  showFps: false,
+});
+export const SOUND_KEYS = ['master', 'music', 'sfx', 'engine', 'voice', 'bgMute', 'mono', 'raceMusic'];
 const QUALITIES = ['high', 'medium', 'low'];
 const HUD_MAPS = ['both', 'map', 'ranks', 'none'];
 
@@ -41,10 +55,12 @@ function shuffle(arr) {
 
 function sanitizeSettings(s) {
   const out = { ...DEFAULT_SETTINGS };
-  for (const k of ['master', 'music', 'sfx']) {
+  for (const k of ['master', 'music', 'sfx', 'engine', 'voice']) {
     const v = Number(s?.[k]);
     if (Number.isFinite(v)) out[k] = Math.max(0, Math.min(1, v));
   }
+  for (const k of ['bgMute', 'mono']) if (typeof s?.[k] === 'boolean') out[k] = s[k];
+  if (s?.raceMusic === 'course' || s?.raceMusic === 'shuffle' || RACE_MUSIC.includes(s?.raceMusic)) out.raceMusic = s.raceMusic;
   if (QUALITIES.includes(s?.quality)) out.quality = s.quality;
   if (HUD_MAPS.includes(s?.hudMap)) out.hudMap = s.hudMap;
   if (typeof s?.showFps === 'boolean') out.showFps = s.showFps;
@@ -120,7 +136,7 @@ export class Game {
       console.error('[game] AudioManager failed', err);
       this.audio = new NullAudio();
     }
-    this.audio.setVolumes(this._volumes());
+    this._applyAudioSettings();
     this._bindUnlock();
     bindResize(this.renderer, () => [this.race?.camera]);
 
@@ -182,8 +198,29 @@ export class Game {
   // ----------------------------------------------------------------------------------------------
 
   _volumes() {
-    const { master, music, sfx } = this.settings;
-    return { master, music, sfx };
+    const { master, music, sfx, engine, voice } = this.settings;
+    return { master, music, sfx, engine, voice };
+  }
+
+  /** Push every sound setting into the AudioManager. */
+  _applyAudioSettings() {
+    const a = this.audio;
+    if (!a) return;
+    a.setVolumes?.(this._volumes());
+    a.setBackgroundMute?.(this.settings.bgMute);
+    a.setMono?.(this.settings.mono);
+  }
+
+  /** Music key for a race on a course whose own theme is `courseMusic` (Options -> Race Music). */
+  raceMusicFor(courseMusic) {
+    const pick = this.settings.raceMusic;
+    if (pick === 'shuffle') {
+      const pool = RACE_MUSIC.filter((k) => k !== this._lastRaceMusic);
+      this._lastRaceMusic = pool[Math.floor(Math.random() * pool.length)] || courseMusic;
+      return this._lastRaceMusic;
+    }
+    if (pick && pick !== 'course' && RACE_MUSIC.includes(pick)) return pick;
+    return courseMusic;
   }
 
   saveSettings() {
@@ -198,7 +235,7 @@ export class Game {
     const next = sanitizeSettings({ ...this.settings, ...partial });
     const changed = Object.keys(next).filter((k) => next[k] !== this.settings[k]);
     Object.assign(this.settings, next);
-    if (changed.some((k) => k === 'master' || k === 'music' || k === 'sfx')) this.audio?.setVolumes(this._volumes());
+    if (changed.some((k) => SOUND_KEYS.includes(k))) this._applyAudioSettings();
     if (changed.includes('quality') && this.renderer) {
       applyQuality(this.renderer, this.settings.quality);
       this.stage?.setQuality(this.settings.quality);
@@ -209,6 +246,10 @@ export class Game {
 
   resetSettings() {
     this.applySettings({ ...DEFAULT_SETTINGS });
+  }
+
+  resetSoundSettings() {
+    this.applySettings(Object.fromEntries(SOUND_KEYS.map((k) => [k, DEFAULT_SETTINGS[k]])));
   }
 
   _bindUnlock() {

@@ -19,6 +19,8 @@
 //  arona       dreamy sparkly "sky road"                     E major, 162
 //  race        default circuit theme (title motif, rock)     A major, 156
 
+import { EXTRA_SONGS } from './songsExtra.js';
+
 // ------------------------------------------------------------------------------------------------------------
 // shared drum patterns (1 char = one 16th; X accent, x hit, o ghost, R 32nd roll)
 // ------------------------------------------------------------------------------------------------------------
@@ -669,7 +671,41 @@ export const SONGS = {
   gehenna,
   arona,
   race,
+  ...EXTRA_SONGS, // eurobeat, highway, ska, chiptune, lounge, online, tournament (songsExtra.js)
 };
+
+/**
+ * The soundtrack in Sound Test order: { key, where, style }. Song titles are SONGS[key].name.
+ * `race: true` marks songs that can play during races (Options -> Race Music).
+ */
+export const SOUNDTRACK = [
+  { key: 'title', where: 'Title screen', style: 'Main theme' },
+  { key: 'menu', where: 'Main menu', style: 'Bouncy shuffle' },
+  { key: 'charselect', where: 'Character select', style: 'Jazz funk' },
+  { key: 'lounge', where: 'Options · How to Play', style: 'Bossa nova' },
+  { key: 'online', where: 'Online lobby', style: 'Future funk' },
+  { key: 'race', where: 'Race mix', style: 'Circuit rock', race: true },
+  { key: 'abydos', where: 'Abydos Desert Circuit', style: 'Desert adventure', race: true },
+  { key: 'shibaseki', where: 'Shibaseki Ramen Street', style: 'Sunset city funk', race: true },
+  { key: 'trinity', where: 'Trinity Garden Speedway', style: 'Orchestral bells', race: true },
+  { key: 'millennium', where: 'Millennium Cyber Loop', style: 'Synthwave', race: true },
+  { key: 'hyakkiyako', where: 'Hyakkiyako Sakura Pass', style: 'Festival', race: true },
+  { key: 'redwinter', where: 'Red Winter Snow Fortress', style: 'Winter march', race: true },
+  { key: 'gehenna', where: 'Gehenna Inferno Rally', style: 'Chiptune metal', race: true },
+  { key: 'arona', where: "Arona's Sky Classroom", style: 'Sky road', race: true },
+  { key: 'eurobeat', where: 'Race mix', style: 'Eurobeat', race: true },
+  { key: 'highway', where: 'Race mix', style: 'Trance', race: true },
+  { key: 'ska', where: 'Race mix', style: 'Ska punk', race: true },
+  { key: 'chiptune', where: 'Race mix', style: '8-bit', race: true },
+  { key: 'results', where: 'Race results', style: 'Lo-fi' },
+  { key: 'tournament', where: 'Tournament standings', style: 'Anthem' },
+  { key: 'victory', where: 'Victory', style: 'Fanfare' },
+  { key: 'defeat', where: 'Defeat', style: 'Music box' },
+  { key: 'trophy', where: 'Trophy ceremony', style: 'Grand brass' },
+];
+
+/** Songs that can be picked as race music. */
+export const RACE_MUSIC = SOUNDTRACK.filter((t) => t.race).map((t) => t.key);
 
 /** Fallback for unknown music keys. */
 export const DEFAULT_SONG = 'race';

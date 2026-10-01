@@ -83,7 +83,11 @@
   .mn-track-info-meta { gap: 2px; }
 
   /* ---- options / how to play */
-  .mn-options-body { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); inset: 58px max(10px, env(safe-area-inset-right, 0px)) 8px max(10px, env(safe-area-inset-left, 0px)); gap: 10px; overflow: auto; }
+  .mn-tabs { top: 54px; padding: 4px; gap: 6px; }
+  .mn-tab { padding: 7px 16px; font-size: 15px; }
+  .mn-options.is-tabbed .mn-options-body { inset: 100px max(10px, env(safe-area-inset-right, 0px)) 6px max(10px, env(safe-area-inset-left, 0px)); gap: 4px; }
+  .mn-options.is-tabbed .mn-opt-help { font-size: 11px; }
+  .mn-howto-body { top: 100px; bottom: 6px; padding: 10px 12px; }
   .mn-options-panel, .mn-controls-panel { padding: 8px 12px; }
   .mn-opt { padding: 4px 10px; margin: 2px 0; }
   .mn-howto-body, .mn-howto-page { font-size: 13px; }

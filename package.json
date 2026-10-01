@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 5173",
+    "relay": "PORT=8787 DIST=./no-build node server/server.mjs",
+    "start": "node server/server.mjs",
     "build": "vite build",
     "preview": "vite preview --port 4173",
     "shot": "node tools/shot.mjs",
@@ -13,7 +15,8 @@
   },
   "dependencies": {
     "peerjs": "^1.5.5",
-    "three": "^0.186.1"
+    "three": "^0.186.1",
+    "ws": "^8.22.0"
   },
   "devDependencies": {
     "puppeteer-core": "^25.12.0",
